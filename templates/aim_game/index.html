@@ -1,0 +1,108 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}AIM Trainer{% endblock %}
+
+{% block content %}
+<section class="game-setup">
+    <div class="controls">
+        <label for="difficulty-select">Difficulty</label>
+        <select id="difficulty-select">
+            {% for key, preset in difficulty_presets.items %}
+                <option value="{{ key }}">{{ key|title }}</option>
+            {% endfor %}
+        </select>
+        <button id="start-button">Start</button>
+        <button id="stop-button" disabled>Stop</button>
+    </div>
+    <p class="hint">Each session runs for 60 seconds. Targets award 100 points, critical hits +50, combo multiplier every 5 streak.</p>
+</section>
+
+<section class="game-container">
+    <canvas id="aim-canvas" width="800" height="600" aria-label="Aim trainer arena"></canvas>
+    <div id="finish-banner" aria-hidden="true">Finish</div>
+</section>
+
+<section class="game-stats">
+    <h2>Current Session</h2>
+    <ul>
+        <li>Score: <span id="score">0</span></li>
+        <li>Kills: <span id="kills">0</span></li>
+        <li>Accuracy: <span id="accuracy">0%</span></li>
+        <li>Average TTK: <span id="avg-ttk">0 ms</span></li>
+        <li>Max Combo: <span id="max-combo">0</span></li>
+        <li>Misses: <span id="misses">0</span></li>
+        <li>Time Remaining: <span id="time-remaining">0.0 s</span></li>
+    </ul>
+    <div id="game-status" role="status" aria-live="polite"></div>
+</section>
+
+<section class="recent-results">
+    <h2>Recent Results</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Played At</th>
+                <th>Difficulty</th>
+                <th>Score</th>
+                <th>Kills</th>
+                <th>Accuracy</th>
+                <th>Avg TTK</th>
+                <th>Max Combo</th>
+                <th>Misses</th>
+            </tr>
+        </thead>
+        <tbody id="recent-results-body">
+            <tr>
+                <td colspan="8">No games played yet.</td>
+            </tr>
+        </tbody>
+    </table>
+</section>
+
+<script id="difficulty-data" type="application/json">
+    {
+        {% for key, preset in difficulty_presets.items %}
+        "{{ key }}": {
+            "radius": {{ preset.radius }},
+            "spawn_interval_ms": [{{ preset.spawn_interval_ms.0 }}, {{ preset.spawn_interval_ms.1 }}],
+            "lifetime_ms": {{ preset.lifetime_ms }},
+            "speed": [{{ preset.speed.0 }}, {{ preset.speed.1 }}],
+            "max_concurrent": {{ preset.max_concurrent }},
+            "critical_threshold_px": {{ preset.critical_threshold_px }}
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    }
+</script>
+<script id="target-assets" type="application/json">
+    {
+        "easy": "{% static 'aim_game/img/target_easy.png' %}",
+        "normal": "{% static 'aim_game/img/target_normal.png' %}",
+        "hard": "{% static 'aim_game/img/target_hard.png' %}"
+    }
+</script>
+<script id="audio-assets" type="application/json">
+    {
+        "hit": "{% static 'aim_game/audio/hit.wav' %}",
+        "critical": "{% static 'aim_game/audio/critical.wav' %}",
+        "miss": "{% static 'aim_game/audio/miss.wav' %}",
+        "finish": "{% static 'aim_game/audio/finish.wav' %}"
+    }
+</script>
+
+<script id="background-assets" type="application/json">
+    {
+        "stages": [
+            {"threshold": 0, "image": "{% static 'aim_game/img/backgrounds/LoRA_image (2).png' %}"},
+            {"threshold": 10, "image": "{% static 'aim_game/img/backgrounds/LoRA_image.png' %}"},
+            {"threshold": 20, "image": "{% static 'aim_game/img/backgrounds/LoRA_image (3).png' %}"},
+            {"threshold": 30, "image": "{% static 'aim_game/img/backgrounds/LoRA_image (5).png' %}"}
+        ]
+    }
+</script>
+
+{% endblock %}
+
+{% block extra_body %}
+<script src="{% static 'aim_game/js/aim_trainer.js' %}"></script>
+{% endblock %}
