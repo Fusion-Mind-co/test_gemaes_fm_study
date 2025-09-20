@@ -1,3 +1,4 @@
+# 学習用ゲーム
 from django.contrib import admin
 
 from .models import GameResult
