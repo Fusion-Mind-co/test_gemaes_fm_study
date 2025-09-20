@@ -12,10 +12,15 @@
     const backgroundAssetsElement = document.getElementById('background-assets');
     const statusElement = document.getElementById('game-status');
     const finishBanner = document.getElementById('finish-banner');
+    const countdownOverlay = document.getElementById('countdown-overlay');
 
     if (!canvas || !ctx || !startButton || !stopButton || !difficultySelect || !difficultyDataElement || !statusElement || !finishBanner) {
         console.warn('AIM Trainer: required DOM elements are missing.');
         return;
+    }
+
+    if (!countdownOverlay) {
+        console.warn('AIM Trainer: countdown overlay element is missing.');
     }
 
     const hud = {
@@ -56,6 +61,7 @@
                   threshold: Number(stage.threshold) || 0,
                   url: typeof stage.image === 'string' ? stage.image : '',
               }))
+              .filter((stage) => stage.url)
               .sort((a, b) => a.threshold - b.threshold)
         : [];
 
@@ -63,12 +69,14 @@
         backgroundStages.push({ threshold: 0, url: '' });
     }
 
-    const audioVolumePresets = { hit: 0.35, critical: 0.5, miss: 0.3, finish: 0.6 };
+    const audioVolumePresets = { hit: 0.35, critical: 0.5, miss: 0.3, finish: 0.6, countdown: 0.5 };
     const targetImages = {};
     const sounds = {};
     const effects = [];
 
     const GAME_DURATION_MS = 60_000;
+    const COUNTDOWN_VALUES = ['3', '2', '1'];
+    const COUNTDOWN_INTERVAL_MS = 1000;
 
     const metrics = {
         score: 0,
@@ -93,6 +101,10 @@
         submissionInProgress: false,
         assetsReady: false,
         currentBackgroundIndex: null,
+        countdownActive: false,
+        countdownTimeouts: [],
+        pendingPresetKey: null,
+        pendingPreset: null,
     };
 
     /** === Background Wiggle (slow pan) === */
@@ -100,9 +112,9 @@ const bgWiggle = {
   enabled: true,
   centerX: 50,   // % 基準位置（横）
   centerY: 50,   // % 基準位置（縦）
-  ampX: 20,       // % 横の振れ幅（808x1440なら小さめ推奨）
-  ampY: 25,      // % 縦の振れ幅（縦長なので大きめOK）
-  freqX: 0.5,   // 1秒あたりの周回数（=0.03で約33秒/周）
+  ampX: 8,       // % 横の振れ幅（808x1440なら小さめ推奨）
+  ampY: 50,    // % 縦の振れ幅（縦長なので大きめOK）
+  freqX: 0.03,   // 1秒あたりの周回数（=0.03で約33秒/周）
   freqY: 0.25    // 0.02で約50秒/周
 };
 let bgWiggleRaf = null;
@@ -129,10 +141,126 @@ function startBgWiggle(){
 
 
     applyBackground(0, { skipEffect: true });
+    hideFinishBanner();
 
     function setStatus(message, tone = 'info') {
         statusElement.textContent = message;
         statusElement.dataset.tone = tone;
+    }
+
+    function showFinishBanner() {
+        finishBanner.classList.add('is-visible');
+        finishBanner.setAttribute('aria-hidden', 'false');
+    }
+
+    function hideFinishBanner() {
+        finishBanner.classList.remove('is-visible');
+        finishBanner.setAttribute('aria-hidden', 'true');
+    }
+
+    function showCountdown(value) {
+        if (!countdownOverlay) {
+            return;
+        }
+        countdownOverlay.textContent = value;
+        countdownOverlay.classList.add('is-visible');
+        countdownOverlay.setAttribute('aria-hidden', 'false');
+    }
+
+    function hideCountdown() {
+        if (!countdownOverlay) {
+            return;
+        }
+        countdownOverlay.classList.remove('is-visible');
+        countdownOverlay.setAttribute('aria-hidden', 'true');
+        countdownOverlay.textContent = '';
+    }
+
+    function clearCountdownTimers() {
+        for (const id of state.countdownTimeouts) {
+            clearTimeout(id);
+        }
+        state.countdownTimeouts.length = 0;
+    }
+
+    function cancelCountdown(options = {}) {
+        if (!state.countdownActive) {
+            return;
+        }
+        state.countdownActive = false;
+        clearCountdownTimers();
+        hideCountdown();
+        state.pendingPresetKey = null;
+        state.pendingPreset = null;
+        if (options.updateStatus) {
+            setStatus('Countdown cancelled.', options.tone || 'warning');
+        }
+        startButton.disabled = false;
+        stopButton.disabled = true;
+    }
+
+    function startCountdown() {
+        if (state.running || state.countdownActive) {
+            return;
+        }
+
+        const presetKey = difficultySelect.value;
+        const preset = difficultyPresets[presetKey];
+        if (!preset) {
+            setStatus('Select a valid difficulty to start.', 'error');
+            return;
+        }
+
+        state.countdownActive = true;
+        state.pendingPresetKey = presetKey;
+        state.pendingPreset = preset;
+        clearCountdownTimers();
+        setStatus('Get ready...', 'info');
+
+        startButton.disabled = true;
+        stopButton.disabled = false;
+
+        if (!countdownOverlay) {
+            state.countdownActive = false;
+            state.pendingPresetKey = null;
+            state.pendingPreset = null;
+            startGame(presetKey, preset);
+            return;
+        }
+
+        let stepIndex = 0;
+
+        const runStep = () => {
+            if (!state.countdownActive) {
+                return;
+            }
+            showCountdown(COUNTDOWN_VALUES[stepIndex]);
+            playSound('countdown');
+            stepIndex += 1;
+
+            if (stepIndex < COUNTDOWN_VALUES.length) {
+                const id = setTimeout(runStep, COUNTDOWN_INTERVAL_MS);
+                state.countdownTimeouts.push(id);
+                return;
+            }
+
+            const startId = setTimeout(() => {
+                if (!state.countdownActive) {
+                    return;
+                }
+                state.countdownActive = false;
+                clearCountdownTimers();
+                hideCountdown();
+                const key = state.pendingPresetKey;
+                const nextPreset = state.pendingPreset;
+                state.pendingPresetKey = null;
+                state.pendingPreset = null;
+                startGame(key, nextPreset);
+            }, COUNTDOWN_INTERVAL_MS);
+            state.countdownTimeouts.push(startId);
+        };
+
+        runStep();
     }
 
     function preloadImages() {
@@ -346,7 +474,7 @@ function startBgWiggle(){
 
         ctx.save();
         ctx.translate(canvas.width / 2, canvas.height / 2);
-        const remaining = [];
+        const survivors = [];
 
         for (const effect of effects) {
             const progress = (now - effect.startTime) / effect.duration;
@@ -378,23 +506,23 @@ function startBgWiggle(){
                 ctx.fill();
             }
 
-            remaining.push(effect);
+            survivors.push(effect);
         }
 
         ctx.restore();
         effects.length = 0;
-        effects.push(...remaining);
+        effects.push(...survivors);
     }
 
     function spawnBackgroundSwapEffect() {
         const now = performance.now();
         const shards = [];
-        const shardCount = 20;
+        const shardCount = 24;
         for (let i = 0; i < shardCount; i += 1) {
             shards.push({
                 angle: (Math.PI * 2 * i) / shardCount,
                 spin: (Math.random() - 0.5) * Math.PI,
-                scale: 0.3 + Math.random() * 0.7,
+                scale: 0.25 + Math.random() * 0.75,
                 size: 8 + Math.random() * 6,
                 fill: 'rgba(255, 200, 80, 1)',
             });
@@ -526,6 +654,12 @@ function startBgWiggle(){
             return;
         }
 
+        state.countdownActive = false;
+        clearCountdownTimers();
+        hideCountdown();
+        state.pendingPresetKey = null;
+        state.pendingPreset = null;
+
         state.running = false;
         state.activeTargets = [];
         if (state.animationFrameId) {
@@ -539,8 +673,11 @@ function startBgWiggle(){
         updateHud(performance.now());
 
         if (aborted) {
+            hideFinishBanner();
             setStatus('Session stopped.', 'info');
         } else {
+            showFinishBanner();
+            playSound('finish');
             setStatus('Session complete!', 'success');
         }
 
@@ -571,17 +708,30 @@ function startBgWiggle(){
         state.animationFrameId = requestAnimationFrame(gameLoop);
     }
 
-    function startGame() {
-        const presetKey = difficultySelect.value;
-        const preset = difficultyPresets[presetKey];
+    function startGame(presetKeyOverride, presetOverride) {
+        if (state.running) {
+            return;
+        }
+
+        const presetKey = presetKeyOverride || difficultySelect.value;
+        const preset = presetOverride || difficultyPresets[presetKey];
         if (!preset) {
             setStatus('Select a valid difficulty to start.', 'error');
+            startButton.disabled = false;
+            stopButton.disabled = true;
             return;
         }
 
         resetMetrics();
         updateHud();
         effects.length = 0;
+        hideFinishBanner();
+        hideCountdown();
+        clearCountdownTimers();
+
+        state.countdownActive = false;
+        state.pendingPresetKey = null;
+        state.pendingPreset = null;
 
         state.running = true;
         state.presetKey = presetKey;
@@ -596,9 +746,7 @@ function startBgWiggle(){
         state.lastFrameTime = now;
         state.nextSpawnAt = now;
 
-        for (let i = 0; i < preset.max_concurrent; i += 1) {
-            spawnTarget(now);
-        }
+        spawnTarget(now);
         scheduleNextSpawn(now);
 
         renderScene(now);
@@ -702,12 +850,16 @@ function startBgWiggle(){
     }
 
     startButton.addEventListener('click', () => {
-        if (!state.running) {
-            startGame();
+        if (!state.running && !state.countdownActive) {
+            startCountdown();
         }
     });
 
     stopButton.addEventListener('click', () => {
+        if (state.countdownActive) {
+            cancelCountdown({ updateStatus: true, tone: 'info' });
+            return;
+        }
         if (state.running) {
             stopGame({ aborted: true });
         }

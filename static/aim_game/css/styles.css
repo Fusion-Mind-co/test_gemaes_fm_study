@@ -72,6 +72,26 @@ main {
     opacity: 1;
 }
 
+#countdown-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(4rem, 8vw, 7rem);
+    font-weight: 700;
+    color: #ffffff;
+    text-shadow: 0 0 22px rgba(0, 0, 0, 0.85);
+    letter-spacing: 0.3rem;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.12s ease-in-out;
+}
+
+#countdown-overlay.is-visible {
+    opacity: 1;
+}
+
 .game-stats,
 .recent-results {
     margin-bottom: 1.5rem;

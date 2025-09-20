@@ -15,11 +15,12 @@
         <button id="start-button">Start</button>
         <button id="stop-button" disabled>Stop</button>
     </div>
-    <p class="hint">Each session runs for 60 seconds. Targets award 100 points, critical hits +50, combo multiplier every 5 streak.</p>
+    <p class="hint">1回のセッションは60秒です。的に命中すると100ポイント、クリティカルヒットでさらに50ポイント、5連続命中ごとにコンボ倍率が上昇します。</p>
 </section>
 
 <section class="game-container">
     <canvas id="aim-canvas" width="800" height="600" aria-label="Aim trainer arena"></canvas>
+    <div id="countdown-overlay" aria-hidden="true"></div>
     <div id="finish-banner" aria-hidden="true">Finish</div>
 </section>
 
@@ -86,7 +87,8 @@
         "hit": "{% static 'aim_game/audio/hit.wav' %}",
         "critical": "{% static 'aim_game/audio/critical.wav' %}",
         "miss": "{% static 'aim_game/audio/miss.wav' %}",
-        "finish": "{% static 'aim_game/audio/finish.wav' %}"
+        "finish": "{% static 'aim_game/audio/finish.wav' %}",
+        "countdown": "{% static 'aim_game/audio/countdown.wav' %}"
     }
 </script>
 
@@ -106,3 +108,4 @@
 {% block extra_body %}
 <script src="{% static 'aim_game/js/aim_trainer.js' %}"></script>
 {% endblock %}
+

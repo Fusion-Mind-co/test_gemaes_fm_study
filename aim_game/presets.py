@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+﻿from dataclasses import dataclass
 from typing import Dict, Tuple
 
 
@@ -22,19 +22,19 @@ DIFFICULTY_PRESETS: Dict[str, DifficultyPreset] = {
         critical_threshold_px=6,
     ),
     'normal': DifficultyPreset(
-        radius=22,
-        spawn_interval_ms=(600, 800),
-        lifetime_ms=1300,
-        speed=(60, 120),
-        max_concurrent=4,
-        critical_threshold_px=4,
+        radius=26,
+        spawn_interval_ms=(700, 950),
+        lifetime_ms=1500,
+        speed=(40, 90),
+        max_concurrent=3,
+        critical_threshold_px=5,
     ),
     'hard': DifficultyPreset(
-        radius=16,
-        spawn_interval_ms=(400, 600),
-        lifetime_ms=1000,
-        speed=(120, 180),
-        max_concurrent=5,
-        critical_threshold_px=3,
+        radius=20,
+        spawn_interval_ms=(550, 750),
+        lifetime_ms=1350,
+        speed=(80, 140),
+        max_concurrent=4,
+        critical_threshold_px=4,
     ),
 }
